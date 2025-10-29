@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Animated Tic-Tac-Toe</title>
+    <!-- Load Tailwind CSS for utility classes like centering and colors --><script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom Styling for Game Board and Animations */
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&display=swap');
+        
+        body {
+            font-family: 'Fredoka', sans-serif;
+            background-color: #f0f4f8; /* Light blue-gray background */
+            position: relative; /* For confetti positioning */
+        }
+
+        .game-container {
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            position: relative; /* Ensure it stays above confetti if z-index is lower */
+            z-index: 1; /* Keep game content on top */
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 10px;
+            aspect-ratio: 1 / 1; /* Keep it square */
+        }
+
+        .cell {
+            background-color: #e2e8f0; /* Gray-200 */
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.3s ease, transform 0.15s ease;
+            color: #1a202c; /* Dark text */
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+        }
+
+        .cell:hover:not(.occupied) {
+            background-color: #cbd5e1; /* Gray-300 on hover */
+            transform: scale(1.02);
+        }
+
+        .occupied {
+            cursor: default;
+        }
+
+        /* X Mark Styling */
+        .cell.x {
+            color: #ef4444; /* Red-500 */
+        }
+
+        /* O Mark Styling */
+        .cell.o {
+            color: #3b82f6; /* Blue-500 */
+        }
+
+        /* Animation for Mark Placement */
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            80% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); }
+        }
+        .cell.occupied span {
+            display: block;
+            animation: popIn 0.3s ease-out;
+        }
+
+        /* Winning Cell Animation */
+        .cell.win {
+            background-color: #10b981; /* Emerald-500 */
+            color: #ffffff;
+            /* Simple pulse animation */
+            animation: winPulse 1s infinite alternate;
+        }
+
+        @keyframes winPulse {
+            from { box-shadow: 0 0 10px rgba(16, 185, 129, 0.5); }
+            to { box-shadow: 0 0 20px rgba(16, 185, 129, 0.8); }
+        }
+
+        /* Button Styling */
+        .btn {
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Status Text Animation */
+        #status-display {
+            transition: color 0.5s ease, transform 0.3s ease;
+            min-height: 40px; /* Prevent CLS */
+        }
+
+        /* --- CONFETTI ANIMATION STYLES --- */
+        #confetti-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Allows clicks to pass through */
+            overflow: hidden;
+            z-index: 10;
+        }
+
+        .confetti {
+            position: absolute;
+            width: 10px; /* Size of the confetti piece */
+            height: 10px;
+            border-radius: 2px; /* Slightly rounded squares */
+            opacity: 0;
+            animation: fall 1.8s linear forwards; /* 1.8s animation duration */
+            box-shadow: 0 0 3px rgba(0,0,0,0.2); /* Subtle shadow for depth */
+        }
+
+        /* Animation for falling confetti */
+        @keyframes fall {
+            0% { transform: translate(0, -10vh) rotate(0deg) scale(1); opacity: 1; }
+            100% { transform: translate(0, 100vh) rotate(720deg) scale(0.7); opacity: 0; }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <div class="game-container">
+        <header class="text-center mb-6">
+            <h1 class="text-4xl font-bold text-gray-800 tracking-tight">Tic-Tac-Toe</h1>
+        </header>
+
+        <!-- Game Mode Toggle --><div class="flex justify-center items-center gap-4 mb-6">
+            <span class="text-sm font-semibold text-gray-700">Human vs Human</span>
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="game-mode-toggle" class="sr-only peer">
+                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+            <span class="text-sm font-semibold text-blue-600">Human vs Oracle</span>
+        </div>
+
+        <!-- Game Status Display --><div id="status-display" class="text-center mb-6 text-xl font-semibold text-gray-600 transition duration-500">
+            Player X's Turn
+        </div>
+        
+        <!-- Game Board --><div id="board" class="board">
+            <!-- Cells will be generated by JavaScript --></div>
+
+        <!-- Controls --><div class="mt-8 text-center flex flex-col sm:flex-row justify-center items-center gap-4">
+            <button id="reset-btn" class="btn px-8 py-3 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-300">
+                Restart Game
+            </button>
+            <button id="oracle-move-btn" class="btn px-6 py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 focus:outline-none focus:ring-4 focus:ring-purple-300 hidden">
+                Ask the Oracle for a Move ✨
+            </button>
+        </div>
+
+        <!-- Oracle Thinking Display --><div id="oracle-thinking" class="mt-4 text-center text-sm text-gray-500 hidden">
+            Oracle is thinking...
+        </div>
+        
+        <!-- Attribution -->
+        <div class="mt-4 text-center text-sm text-gray-400">
+            Made by yuv
+        </div>
+    </div>
+    
+    <!-- Confetti Container (hidden layer for animation) --><div id="confetti-container"></div> 
+
+<script type="module">
+    // --- Google Gemini API Setup (replace with your actual API key) ---
+    // IMPORTANT: In a real production app, NEVER expose API keys directly in client-side code.
+    // Use a backend proxy to protect your API key. This is for demonstration purposes only.
+    import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
+    const API_KEY = "YOUR_API_KEY"; // Replace with your actual API key
+    if (API_KEY === "YOUR_API_KEY") {
+        console.warn("WARNING: Please replace 'YOUR_API_KEY' with your actual Google Gemini API key to enable Oracle mode.");
+    }
+    const genAI = new GoogleGenerativeAI(API_KEY);
+
+    // --- Game State Variables ---
+    const WINNING_COMBOS = [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
+        [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
+        [0, 4, 8], [2, 4, 6]            // Diagonals
+    ];
+
+    let boardState = Array(9).fill(null); // null, 'X', or 'O'
+    let currentPlayer = 'X';
+    let isGameActive = true;
+    let cells; // Will hold the DOM elements for cells
+    let isOracleMode = false;
+    let oracleIsThinking = false;
+
+    // --- DOM Elements ---
+    const boardEl = document.getElementById('board');
+    const statusEl = document.getElementById('status-display');
+    const resetBtn = document.getElementById('reset-btn');
+    const gameModeToggle = document.getElementById('game-mode-toggle');
+    const oracleMoveBtn = document.getElementById('oracle-move-btn');
+    const oracleThinkingEl = document.getElementById('oracle-thinking');
+
+    const confettiColors = ['#ef4444', '#3b82f6', '#facc15', '#10b981', '#6366f1']; // Tailwind colors: Red, Blue, Yellow, Emerald, Indigo
+
+    // --- Game Logic Functions ---
+
+    /**
+     * Renders the initial game board structure and attaches click listeners.
+     */
+    function createBoard() {
+        boardEl.innerHTML = ''; // Clear existing board
+        for (let i = 0; i < 9; i++) {
+            const cell = document.createElement('div');
+            cell.classList.add('cell');
+            cell.dataset.index = i;
+            cell.addEventListener('click', handleCellClick);
+            boardEl.appendChild(cell);
+        }
+        // Store cell DOM elements
+        cells = document.querySelectorAll('.cell');
+    }
+
+    /**
+     * Updates the status display with smooth transition effects.
+     * @param {string} message - The text to display.
+     * @param {string} colorClass - Tailwind class for color (e.g., 'text-red-500').
+     */
+    function updateStatus(message, colorClass = 'text-gray-600') {
+        statusEl.classList.add('opacity-0', 'scale-90');
+        statusEl.classList.remove('text-red-500', 'text-blue-500', 'text-emerald-500', 'text-gray-600', 'text-gray-800');
+        
+        setTimeout(() => {
+            statusEl.textContent = message;
+            statusEl.classList.add(colorClass);
+            statusEl.classList.remove('opacity-0', 'scale-90');
+        }, 300); // Match CSS transition time
+    }
+
+    /**
+     * Checks if the current player has won the game.
+     * @returns {Array<number> | null} Array of winning indices or null if no winner.
+     */
+    function checkWin() {
+        for (const combo of WINNING_COMBOS) {
+            const [a, b, c] = combo;
+            if (boardState[a] && boardState[a] === boardState[b] && boardState[a] === boardState[c]) {
+                return combo; // Return the winning combination indices
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Checks if the game is a draw (all cells filled, no winner).
+     * @returns {boolean} True if it's a draw, false otherwise.
+     */
+    function checkDraw() {
+        return !boardState.includes(null);
+    }
+
+    /**
+     * Handles the logic when a cell is clicked.
+     * @param {Event} event - The click event object.
+     */
+    function handleCellClick(event) {
+        const cell = event.target;
+        const index = parseInt(cell.dataset.index);
+
+        // Prevent clicking if game is not active, cell is occupied, or Oracle is thinking
+        if (!isGameActive || boardState[index] !== null || oracleIsThinking) {
+            return;
+        }
+
+        makeMove(index, currentPlayer);
+    }
+
+    /**
+     * Makes a move on the board for the given player.
+     * @param {number} index - The index of the cell to play.
+     * @param {string} player - 'X' or 'O'.
+     * @returns {boolean} True if the move was valid and made, false otherwise.
+     */
+    function makeMove(index, player) {
+        if (!isGameActive || boardState[index] !== null) {
+            return false;
+        }
+
+        // 1. Update Game State
+        boardState[index] = player;
+
+        // 2. Update Cell UI with Animation
+        const cell = cells[index];
+        cell.classList.add('occupied', player.toLowerCase());
+        cell.innerHTML = `<span>${player}</span>`; 
+
+        // 3. Check Game Status
+        const winCombo = checkWin();
+        if (winCombo) {
+            handleWin(winCombo);
+        } else if (checkDraw()) {
+            handleDraw();
+        } else {
+            // 4. Switch Player
+            currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+            const colorClass = currentPlayer === 'X' ? 'text-red-500' : 'text-blue-500';
+            updateStatus(`Player ${currentPlayer}'s Turn`, colorClass);
+        }
+        return true;
+    }
+    
+    /**
+     * Triggers a confetti animation with small colored squares falling from the top.
+     */
+    function triggerConfettiAnimation() {
+        const confettiContainer = document.getElementById('confetti-container');
+        const confettiCount = 60; // Number of confetti pieces
+        
+        for (let i = 0; i < confettiCount; i++) {
+            const piece = document.createElement('div');
+            piece.classList.add('confetti');
+            
+            // Random color from the predefined palette
+            const randomColor = confettiColors[Math.floor(Math.random() * confettiColors.length)];
+            piece.style.backgroundColor = randomColor;
+
+            // Random horizontal position (0% to 100% of screen width)
+            const startX = Math.random() * 100;
+            
+            // Apply random properties for varied animation
+            piece.style.left = `${startX}vw`;
+            piece.style.animationDelay = `${Math.random() * 0.5}s`; // Stagger the starts
+            piece.style.animationDuration = `${1.5 + Math.random() * 0.5}s`; // Vary speed
+
+            confettiContainer.appendChild(piece);
+
+            // Remove the piece after animation finishes (max duration + max delay)
+            setTimeout(() => {
+                piece.remove();
+            }, 2500); // Max animation duration (2s) + a little buffer
+        }
+    }
+
+
+    /**
+     * Executes when a player wins.
+     * @param {Array<number>} winCombo - Indices of the winning cells.
+     */
+    function handleWin(winCombo) {
+        isGameActive = false;
+        
+        updateStatus(`Player ${currentPlayer} Wins! 🥳`, currentPlayer === 'X' ? 'text-red-500' : 'text-blue-500');
+
+        // Apply winning animation to the winning cells
+        winCombo.forEach(index => {
+            cells[index].classList.add('win');
+        });
+
+        // Trigger confetti
+        triggerConfettiAnimation();
+    }
+
+    /**
+     * Executes when the game is a draw.
+     */
+    function handleDraw() {
+        isGameActive = false;
+        updateStatus("It's a Draw! 🤝", 'text-gray-600');
+    }
+
+    /**
+     * Resets the game to its initial state.
+     */
+    function resetGame() {
+        boardState = Array(9).fill(null);
+        currentPlayer = 'X';
+        isGameActive = true;
+        oracleIsThinking = false;
+        
+        // Clear all cell content and classes
+        cells.forEach(cell => {
+            cell.innerHTML = '';
+            cell.classList.remove('occupied', 'x', 'o', 'win');
+        });
+
+        updateStatus("Player X's Turn", 'text-red-500');
+        oracleThinkingEl.classList.add('hidden'); // Hide Oracle thinking message
+        updateOracleButtonState();
+    }
+
+    // --- Oracle (AI) Logic ---
+
+    /**
+     * Asks the Gemini API for a suggested move.
+     * The prompt describes the game, the current board, and asks for the best next move.
+     * IMPORTANT: In a real app, use a backend to protect your API key and handle AI calls.
+     */
+    async function getOracleMove() {
+        if (!API_KEY || API_KEY === "YOUR_API_KEY") {
+            // Used alert() here because the user is expected to replace the key, and this is a developer-facing tool.
+            alert("Please set your Google Gemini API Key in the JavaScript code to use Oracle mode.");
+            return null;
+        }
+        if (oracleIsThinking) return null; // Prevent multiple requests
+
+        oracleIsThinking = true;
+        oracleThinkingEl.classList.remove('hidden');
+        oracleMoveBtn.disabled = true;
+
+        // Using gemini-2.5-flash-preview-09-2025 as the standard model for non-search generation
+        const apiKey = "";
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+        // Map board state to a more readable format for the LLM
+        const boardForLLM = boardState.map((cell, i) => {
+            if (cell === 'X') return 'X';
+            if (cell === 'O') return 'O';
+            return `[${i}]`; // Represent empty cells with their index
+        }).join(',');
+
+        const prompt = `You are playing Tic-Tac-Toe. The board is represented by a 3x3 grid, linearized.
+        'X' and 'O' represent player marks. Empty cells are represented by their index [0-8].
+        The current player is 'O' (the Oracle).
+        Current board state: ${boardForLLM}
+        
+        Your task is to choose the best possible move for player 'O'.
+        Respond ONLY with the index (0-8) of the cell you want to play in.
+        Do NOT include any other text, explanation, or punctuation. Just the number.`;
+
+        const payload = {
+            contents: [{ parts: [{ text: prompt }] }],
+            systemInstruction: {
+                parts: [{ text: "You are an expert Tic-Tac-Toe AI. You only respond with a single integer (0-8) representing the optimal next move index." }]
+            },
+        };
+
+        let suggestedMove = null;
+        let retries = 0;
+        const maxRetries = 3;
+
+        while (retries < maxRetries) {
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+                console.log("Oracle raw response:", text);
+
+                const parsedMove = parseInt(text);
+
+                if (!isNaN(parsedMove) && parsedMove >= 0 && parsedMove <= 8 && boardState[parsedMove] === null) {
+                    suggestedMove = parsedMove;
+                    break; // Success
+                } else {
+                    console.warn(`Oracle returned an invalid move ('${text}'). Retrying or falling back.`);
+                }
+            } catch (error) {
+                console.error(`Error communicating with Oracle (Attempt ${retries + 1}):`, error);
+                if (retries < maxRetries - 1) {
+                    await new Promise(resolve => setTimeout(resolve, Math.pow(2, retries) * 1000)); // Exponential backoff
+                }
+            }
+            retries++;
+        }
+
+        if (suggestedMove === null) {
+            // Fallback: pick a random empty cell if Oracle fails or returns invalid move repeatedly
+            const emptyCells = boardState.map((val, idx) => val === null ? idx : -1).filter(idx => idx !== -1);
+            if (emptyCells.length > 0) {
+                suggestedMove = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+            } else {
+                // If no empty cells and no move suggested (shouldn't happen unless game is over)
+                suggestedMove = null;
+            }
+        }
+
+        oracleIsThinking = false;
+        oracleThinkingEl.classList.add('hidden');
+        updateOracleButtonState();
+        
+        return suggestedMove;
+    }
+
+    /**
+     * Handles the Oracle's turn when in AI mode.
+     */
+    async function handleOracleTurn() {
+        if (!isGameActive || currentPlayer !== 'O') return;
+
+        const oracleMove = await getOracleMove();
+        if (oracleMove !== null) {
+            makeMove(oracleMove, 'O');
+        } else {
+            console.warn("Oracle could not make a valid move or no empty cells available.");
+        }
+        updateOracleButtonState(); // Re-enable button if game is still active and player X's turn
+    }
+
+    /**
+     * Updates the visibility and state of the Oracle button.
+     */
+    function updateOracleButtonState() {
+        if (isOracleMode && isGameActive && currentPlayer === 'O') {
+            oracleMoveBtn.classList.remove('hidden');
+            oracleMoveBtn.disabled = oracleIsThinking;
+        } else {
+            oracleMoveBtn.classList.add('hidden');
+            oracleMoveBtn.disabled = true;
+        }
+    }
+
+    // --- Initialization ---
+
+    resetBtn.addEventListener('click', resetGame);
+    oracleMoveBtn.addEventListener('click', handleOracleTurn);
+
+    gameModeToggle.addEventListener('change', () => {
+        isOracleMode = gameModeToggle.checked;
+        resetGame(); // Reset game when mode changes
+        updateOracleButtonState();
+    });
+
+    // Initial setup on window load
+    window.onload = function() {
+        createBoard();
+        updateStatus("Player X's Turn", 'text-red-500'); // Initial message
+        updateOracleButtonState(); // Set initial button state
+    };
+
+</script>
+</body>
+</html>
